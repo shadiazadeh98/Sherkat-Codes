@@ -1,0 +1,661 @@
+import json
+from decimal import Decimal
+
+
+# =============================================================
+# HELPER FUNCTIONS
+# =============================================================
+
+def D(value):
+    if value is None:
+        return Decimal("0")
+    return Decimal(str(value))
+
+
+def fmt(value):
+    if not isinstance(value, Decimal):
+        value = D(value)
+
+    if value == value.to_integral():
+        return str(value.quantize(Decimal("1")))
+
+    return format(value.normalize(), "f")
+
+
+def load_json(input_json):
+    if isinstance(input_json, str):
+        return json.loads(
+            input_json,
+            parse_float=Decimal,
+            parse_int=Decimal
+        )
+
+    if isinstance(input_json, dict):
+        return input_json.copy()
+
+    raise ValueError(
+        "Input must be a JSON string or Python dictionary."
+    )
+
+
+def get_value(data, field_name):
+    """
+    اگر فیلد داخل JSON باشد مقدار آن خوانده می‌شود.
+    اگر وجود نداشته باشد مقدار صفر در نظر گرفته می‌شود.
+    """
+    return D(data.get(field_name, 0))
+
+
+def decimal_to_json_value(value):
+    if isinstance(value, Decimal):
+        if value == value.to_integral():
+            return int(value)
+
+        return float(value)
+
+    return value
+
+
+# =============================================================
+# CALCULATION
+# =============================================================
+
+def calculate_buying_power(input_json):
+
+    data = load_json(input_json)
+    account_number = data.get("AccountNumber", "")
+
+    # =========================================================
+    # READ VALUES FROM JSON
+    # =========================================================
+
+    # -------------------------
+    # T0
+    # -------------------------
+
+    Creditor_T0 = get_value(data, "Creditor_T0")
+    ManualCreditor_T0 = get_value(data, "ManualCreditor_T0")
+
+    Debtor_T0 = get_value(data, "Debtor_T0")
+    ManualDebtor_T0 = get_value(data, "ManualDebtor_T0")
+
+    BlockOn_T0 = get_value(data, "BlockOn_T0")
+    BlockOff_T0 = get_value(data, "BlockOff_T0")
+    BlockWith_T0 = get_value(data, "BlockWith_T0")
+
+    BlockM_T0 = get_value(data, "BlockM_T0")
+    BlockSettlement_T0 = get_value(data, "BlockSettlement_T0")
+
+    # -------------------------
+    # T1
+    # -------------------------
+
+    Creditor_T1 = get_value(data, "Creditor_T1")
+    ManualCreditor_T1 = get_value(data, "ManualCreditor_T1")
+
+    Debtor_T1 = get_value(data, "Debtor_T1")
+
+    BlockOn_T1 = get_value(data, "BlockOn_T1")
+    BlockOff_T1 = get_value(data, "BlockOff_T1")
+    BlockWith_T1 = get_value(data, "BlockWith_T1")
+
+    # -------------------------
+    # T2
+    # -------------------------
+
+    Creditor_T2 = get_value(data, "Creditor_T2")
+    ManualCreditor_T2 = get_value(data, "ManualCreditor_T2")
+
+    Debtor_T2 = get_value(data, "Debtor_T2")
+
+    BlockOn_T2 = get_value(data, "BlockOn_T2")
+    BlockOff_T2 = get_value(data, "BlockOff_T2")
+    BlockWith_T2 = get_value(data, "BlockWith_T2")
+
+    # -------------------------
+    # KARA CREDIT
+    # -------------------------
+
+    CreditorT1_KaraCredit = get_value(
+        data,
+        "CreditorT1_KaraCredit"
+    )
+
+    DebtorT1_KaraCredit = get_value(
+        data,
+        "DebtorT1_KaraCredit"
+    )
+
+    # -------------------------
+    # CREDIT
+    # -------------------------
+
+    Credit = get_value(data, "Credit")
+
+    # =========================================================
+    # TOTAL REMAINING T0
+    # =========================================================
+
+    TotalRemaining_T0 = (
+        Creditor_T0
+        + ManualCreditor_T0
+        - Debtor_T0
+        - ManualDebtor_T0
+        - BlockOn_T0
+        - BlockOff_T0
+        - BlockWith_T0
+        - BlockM_T0
+        - BlockSettlement_T0
+    )
+
+    # =========================================================
+    # TOTAL REMAINING T1
+    # =========================================================
+
+    TotalRemaining_T1 = (
+        TotalRemaining_T0
+        + Creditor_T1
+        + ManualCreditor_T1
+        - Debtor_T1
+        - BlockOn_T1
+        - BlockOff_T1
+        - BlockWith_T1
+    )
+
+    # =========================================================
+    # TOTAL REMAINING T2
+    # =========================================================
+
+    TotalRemaining_T2 = (
+        TotalRemaining_T1
+        + Creditor_T2
+        + ManualCreditor_T2
+        - Debtor_T2
+        - BlockOn_T2
+        - BlockOff_T2
+        - BlockWith_T2
+    )
+
+    # =========================================================
+    # TOTAL REMAINING - KARA CREDIT
+    # =========================================================
+
+    TotalRemaining_T1_KaraCredit = (
+        TotalRemaining_T1
+        + CreditorT1_KaraCredit
+        - DebtorT1_KaraCredit
+    )
+
+    TotalRemaining_T2_KaraCredit = (
+        TotalRemaining_T1_KaraCredit
+        + Creditor_T2
+        + ManualCreditor_T2
+        - Debtor_T2
+        - BlockOn_T2
+        - BlockOff_T2
+        - BlockWith_T2
+    )
+
+    # =========================================================
+    # BUYING POWER
+    # =========================================================
+
+    # BP_T0 = Min(TR0, TR1, TR2) + Credit
+
+    BP_T0 = (
+        min(
+            TotalRemaining_T0,
+            TotalRemaining_T1,
+            TotalRemaining_T2
+        )
+        + Credit
+    )
+
+    # BP_T1 =
+    # Min(TR_T1_KaraCredit, TR_T2_KaraCredit) + Credit
+
+    BP_T1 = (
+        min(
+            TotalRemaining_T1_KaraCredit,
+            TotalRemaining_T2_KaraCredit
+        )
+        + Credit
+    )
+
+    # BP_T2 =
+    # TR_T2_KaraCredit + Credit
+
+    BP_T2 = (
+        TotalRemaining_T2_KaraCredit
+        + Credit
+    )
+
+    # =========================================================
+    # BUYING POWER WITHOUT KARA CREDIT
+    # =========================================================
+
+    # BP_T1_WithoutKaraCredit =
+    # Min(TR1, TR2) + Credit
+
+    BP_T1_WithoutKaraCredit = (
+        min(
+            TotalRemaining_T1,
+            TotalRemaining_T2
+        )
+        + Credit
+    )
+
+    # BP_T2_WithoutKaraCredit =
+    # TR2 + Credit
+
+    BP_T2_WithoutKaraCredit = (
+        TotalRemaining_T2
+        + Credit
+    )
+
+    # =========================================================
+    # WITHDRAW
+    # =========================================================
+
+    Withdraw_T0 = (
+        BP_T0
+        - Credit
+    )
+
+    Withdraw_T1 = (
+        BP_T1_WithoutKaraCredit
+        - Credit
+    )
+
+    Withdraw_T2 = (
+        BP_T2_WithoutKaraCredit
+        - Credit
+    )
+
+    # =========================================================
+    # RESULTS
+    # =========================================================
+
+    results = {
+        "TotalRemaining_T0": TotalRemaining_T0,
+        "TotalRemaining_T1": TotalRemaining_T1,
+        "TotalRemaining_T2": TotalRemaining_T2,
+
+        "TotalRemaining_T1_KaraCredit":
+            TotalRemaining_T1_KaraCredit,
+
+        "TotalRemaining_T2_KaraCredit":
+            TotalRemaining_T2_KaraCredit,
+
+        "BP_T0": BP_T0,
+        "BP_T1": BP_T1,
+        "BP_T2": BP_T2,
+
+        "BP_T1_WithoutKaraCredit":
+            BP_T1_WithoutKaraCredit,
+
+        "BP_T2_WithoutKaraCredit":
+            BP_T2_WithoutKaraCredit,
+
+        "Withdraw_T0": Withdraw_T0,
+        "Withdraw_T1": Withdraw_T1,
+        "Withdraw_T2": Withdraw_T2
+    }
+
+    # =========================================================
+    # FORMULAS
+    # =========================================================
+
+    formulas = {
+        "TotalRemaining_T0":
+            "TotalRemaining_T0 = "
+            "Creditor_T0 + ManualCreditor_T0 "
+            "- Debtor_T0 - ManualDebtor_T0 "
+            "- BlockOn_T0 - BlockOff_T0 - BlockWith_T0 "
+            "- BlockM_T0 - BlockSettlement_T0",
+
+        "TotalRemaining_T1":
+            "TotalRemaining_T1 = "
+            "TotalRemaining_T0 + Creditor_T1 + ManualCreditor_T1 "
+            "- Debtor_T1 - BlockOn_T1 - BlockOff_T1 - BlockWith_T1",
+
+        "TotalRemaining_T2":
+            "TotalRemaining_T2 = "
+            "TotalRemaining_T1 + Creditor_T2 + ManualCreditor_T2 "
+            "- Debtor_T2 - BlockOn_T2 - BlockOff_T2 - BlockWith_T2",
+
+        "TotalRemaining_T1_KaraCredit":
+            "TotalRemaining_T1_KaraCredit = "
+            "TotalRemaining_T1 + CreditorT1_KaraCredit "
+            "- DebtorT1_KaraCredit",
+
+        "TotalRemaining_T2_KaraCredit":
+            "TotalRemaining_T2_KaraCredit = "
+            "TotalRemaining_T1_KaraCredit "
+            "+ Creditor_T2 + ManualCreditor_T2 "
+            "- Debtor_T2 - BlockOn_T2 - BlockOff_T2 - BlockWith_T2",
+
+        "BP_T0":
+            "BP_T0 = "
+            "Min(TotalRemaining_T0, TotalRemaining_T1, "
+            "TotalRemaining_T2) + Credit",
+
+        "BP_T1":
+            "BP_T1 = "
+            "Min(TotalRemaining_T1_KaraCredit, "
+            "TotalRemaining_T2_KaraCredit) + Credit",
+
+        "BP_T2":
+            "BP_T2 = TotalRemaining_T2_KaraCredit + Credit",
+
+        "BP_T1_WithoutKaraCredit":
+            "BP_T1_WithoutKaraCredit = "
+            "Min(TotalRemaining_T1, TotalRemaining_T2) + Credit",
+
+        "BP_T2_WithoutKaraCredit":
+            "BP_T2_WithoutKaraCredit = "
+            "TotalRemaining_T2 + Credit",
+
+        "Withdraw_T0":
+            "Withdraw_T0 = BP_T0 - Credit",
+
+        "Withdraw_T1":
+            "Withdraw_T1 = BP_T1_WithoutKaraCredit - Credit",
+
+        "Withdraw_T2":
+            "Withdraw_T2 = BP_T2_WithoutKaraCredit - Credit"
+    }
+
+    # =========================================================
+    # FORMULAS WITH ACTUAL VALUES
+    # =========================================================
+
+    value_formulas = {
+        "TotalRemaining_T0":
+            f"TotalRemaining_T0 = "
+            f"{fmt(Creditor_T0)} "
+            f"+ {fmt(ManualCreditor_T0)} "
+            f"- {fmt(Debtor_T0)} "
+            f"- {fmt(ManualDebtor_T0)} "
+            f"- {fmt(BlockOn_T0)} "
+            f"- {fmt(BlockOff_T0)} "
+            f"- {fmt(BlockWith_T0)} "
+            f"- {fmt(BlockM_T0)} "
+            f"- {fmt(BlockSettlement_T0)}",
+
+        "TotalRemaining_T1":
+            f"TotalRemaining_T1 = "
+            f"{fmt(TotalRemaining_T0)} "
+            f"+ {fmt(Creditor_T1)} "
+            f"+ {fmt(ManualCreditor_T1)} "
+            f"- {fmt(Debtor_T1)} "
+            f"- {fmt(BlockOn_T1)} "
+            f"- {fmt(BlockOff_T1)} "
+            f"- {fmt(BlockWith_T1)}",
+
+        "TotalRemaining_T2":
+            f"TotalRemaining_T2 = "
+            f"{fmt(TotalRemaining_T1)} "
+            f"+ {fmt(Creditor_T2)} "
+            f"+ {fmt(ManualCreditor_T2)} "
+            f"- {fmt(Debtor_T2)} "
+            f"- {fmt(BlockOn_T2)} "
+            f"- {fmt(BlockOff_T2)} "
+            f"- {fmt(BlockWith_T2)}",
+
+        "TotalRemaining_T1_KaraCredit":
+            f"TotalRemaining_T1_KaraCredit = "
+            f"{fmt(TotalRemaining_T1)} "
+            f"+ {fmt(CreditorT1_KaraCredit)} "
+            f"- {fmt(DebtorT1_KaraCredit)}",
+
+        "TotalRemaining_T2_KaraCredit":
+            f"TotalRemaining_T2_KaraCredit = "
+            f"{fmt(TotalRemaining_T1_KaraCredit)} "
+            f"+ {fmt(Creditor_T2)} "
+            f"+ {fmt(ManualCreditor_T2)} "
+            f"- {fmt(Debtor_T2)} "
+            f"- {fmt(BlockOn_T2)} "
+            f"- {fmt(BlockOff_T2)} "
+            f"- {fmt(BlockWith_T2)}",
+
+        "BP_T0":
+            f"BP_T0 = "
+            f"Min("
+            f"{fmt(TotalRemaining_T0)}, "
+            f"{fmt(TotalRemaining_T1)}, "
+            f"{fmt(TotalRemaining_T2)}"
+            f") + {fmt(Credit)}",
+
+        "BP_T1":
+            f"BP_T1 = "
+            f"Min("
+            f"{fmt(TotalRemaining_T1_KaraCredit)}, "
+            f"{fmt(TotalRemaining_T2_KaraCredit)}"
+            f") + {fmt(Credit)}",
+
+        "BP_T2":
+            f"BP_T2 = "
+            f"{fmt(TotalRemaining_T2_KaraCredit)} "
+            f"+ {fmt(Credit)}",
+
+        "BP_T1_WithoutKaraCredit":
+            f"BP_T1_WithoutKaraCredit = "
+            f"Min("
+            f"{fmt(TotalRemaining_T1)}, "
+            f"{fmt(TotalRemaining_T2)}"
+            f") + {fmt(Credit)}",
+
+        "BP_T2_WithoutKaraCredit":
+            f"BP_T2_WithoutKaraCredit = "
+            f"{fmt(TotalRemaining_T2)} "
+            f"+ {fmt(Credit)}",
+
+        "Withdraw_T0":
+            f"Withdraw_T0 = "
+            f"{fmt(BP_T0)} - {fmt(Credit)}",
+
+        "Withdraw_T1":
+            f"Withdraw_T1 = "
+            f"{fmt(BP_T1_WithoutKaraCredit)} "
+            f"- {fmt(Credit)}",
+
+        "Withdraw_T2":
+            f"Withdraw_T2 = "
+            f"{fmt(BP_T2_WithoutKaraCredit)} "
+            f"- {fmt(Credit)}"
+    }
+
+    # =========================================================
+    # JSON OUTPUT
+    #
+    # خروجی دقیقا همان Fieldهای JSON ورودی را دارد.
+    # نه Field اضافه می‌شود و نه Field حذف می‌شود.
+    # فقط مقادیر محاسباتی جایگزین می‌شوند.
+    # =========================================================
+
+    calculated_fields = {
+        "BP_T0": BP_T0,
+        "BP_T1": BP_T1,
+        "BP_T2": BP_T2,
+
+        "BP_T1_WithoutKaraCredit":
+            BP_T1_WithoutKaraCredit,
+
+        "BP_T2_WithoutKaraCredit":
+            BP_T2_WithoutKaraCredit,
+
+        "Withdraw_T0": Withdraw_T0,
+        "Withdraw_T1": Withdraw_T1,
+        "Withdraw_T2": Withdraw_T2
+    }
+
+    json_output = {}
+
+    for field_name, original_value in data.items():
+
+        if field_name in calculated_fields:
+            json_output[field_name] = (
+                decimal_to_json_value(
+                    calculated_fields[field_name]
+                )
+            )
+
+        else:
+            json_output[field_name] = (
+                decimal_to_json_value(
+                    original_value
+                )
+            )
+
+    return (
+        account_number,
+        results,
+        formulas,
+        value_formulas,
+        json_output
+    )
+
+
+# =============================================================
+# PRINT CALCULATIONS
+# =============================================================
+
+def print_results(
+    account_number,
+    results,
+    formulas,
+    value_formulas
+):
+
+    print()
+    print("=" * 120)
+    print("OMS BUYING POWER CALCULATION")
+    print("=" * 120)
+
+    print(
+        f"AccountNumber: {account_number}"
+    )
+
+    for field_name in formulas:
+
+        print()
+        print("-" * 120)
+
+        print("Formula:")
+        print(
+            formulas[field_name]
+        )
+
+        print()
+        print("Values:")
+        print(
+            value_formulas[field_name]
+        )
+
+        print()
+        print("Result:")
+        print(
+            f"{field_name} = "
+            f"{fmt(results[field_name])}"
+        )
+
+    print()
+    print("=" * 120)
+
+
+# =============================================================
+# PRINT JSON OUTPUT
+# =============================================================
+
+def print_json_output(json_output):
+
+    print()
+    print("=" * 120)
+    print("JSON OUTPUT")
+    print("=" * 120)
+
+    print(
+        json.dumps(
+            json_output,
+            ensure_ascii=False,
+            indent=2
+        )
+    )
+
+    print("=" * 120)
+
+
+# =============================================================
+# =============================================================
+#
+#                         INPUT
+#
+#                 فقط این قسمت را تغییر بده
+#
+# =============================================================
+# =============================================================
+
+input_json = r'''
+{
+  "AccountNumber": "18090921805446",
+  "Creditor_T0": 11000000.0000000000,
+  "Creditor_T1": 66638774.3563187500,
+  "Creditor_T2": 31831109.3520000000,
+  "Debtor_T0": 0.0000000000,
+  "Debtor_T1": 98203327.2856375000,
+  "Debtor_T2": 36134445.0067200000,
+  "BlockOff_T0": 0.0000000000,
+  "BlockOff_T1": 0.0000000000,
+  "BlockOff_T2": 0.0000000000,
+  "BlockWith_T0": 0.0000000000,
+  "BlockWith_T1": 0.0000000000,
+  "BlockWith_T2": 0.0000000000,
+  "BlockOn_T0": 0.0000000000,
+  "BlockOn_T1": 0.0000000000,
+  "BlockOn_T2": 0.0000000000,
+  "Credit": 2000000,
+  "BP_T0": -867888.5840387500,
+  "BP_T1": -867888.5840387500,
+  "BP_T2": -867888.5840387500,
+  "BP_T1_WithoutKaraCredit": -867888.5840387500,
+  "BP_T2_WithoutKaraCredit": -867888.5840387500,
+  "Withdraw_T0": -2867888.5840387500,
+  "Withdraw_T1": -2867888.5840387500,
+  "Withdraw_T2": -2867888.5840387500,
+  "BlockM_T0": 0.0000000000,
+  "BlockSettlement_T0": 0.0000000000,
+  "ManualCreditor_T0": 9000000.0000000000,
+  "ManualCreditor_T1": 8800000.0000000000,
+  "ManualCreditor_T2": 4200000.0000000000,
+  "ManualDebtor_T0": 0.0000000000,
+  "DebtorT1_KaraCredit": 0,
+  "CreditorT1_KaraCredit": 0
+}
+'''
+
+
+# =============================================================
+# RUN
+# =============================================================
+
+(
+    account_number,
+    results,
+    formulas,
+    value_formulas,
+    json_output
+) = calculate_buying_power(
+    input_json
+)
+
+print_results(
+    account_number,
+    results,
+    formulas,
+    value_formulas
+)
+
+print_json_output(
+    json_output
+)

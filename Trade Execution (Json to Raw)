@@ -1,0 +1,841 @@
+import json
+
+
+MESSAGE_LENGTH = 227
+
+
+# ======================================================
+# Fixed values
+#
+# These values were extracted from the sample 0105
+# message.
+#
+# They are NOT required in the input JSON.
+# ======================================================
+
+DEFAULT_FIELDS = {
+
+    # --------------------------------------------------
+    # Instrument Group ID
+    # Offset 47
+    # Length 2
+    # --------------------------------------------------
+
+    "Instrument Group ID": "QS",
+
+    # --------------------------------------------------
+    # Counterpart Member ID
+    # Offset 85
+    # Length 8
+    # --------------------------------------------------
+
+    "Counterpart Member ID": "        ",
+
+    # --------------------------------------------------
+    # Order Origin for Counterpart Broker
+    # Offset 93
+    # Length 1
+    # --------------------------------------------------
+
+    "Counterpart Order Origin": "1",
+
+    # --------------------------------------------------
+    # Technical Origin
+    # Offset 94
+    # Length 1
+    # --------------------------------------------------
+
+    "Technical Origin": "A",
+
+    # --------------------------------------------------
+    # Response Sequence Number
+    # Offset 95
+    # Length 6
+    # --------------------------------------------------
+
+    "Response Sequence Number": "000000",
+
+    # --------------------------------------------------
+    # Instrument Category
+    # Offset 132
+    # Length 1
+    # --------------------------------------------------
+
+    "Instrument Category": "A",
+
+    # --------------------------------------------------
+    # TRS Trade Number Bis
+    # Offset 133
+    # Length 8
+    # --------------------------------------------------
+
+    "TRS Trade Number Bis": "        ",
+
+    # --------------------------------------------------
+    # Filler
+    # Offset 141
+    # Length 1
+    # --------------------------------------------------
+
+    "Filler": " ",
+
+    # ==================================================
+    # Clearing Data Aggregate
+    # ==================================================
+
+    # Offset 142
+    # Length 8
+    "Issuing Trader ID": "18098003",
+
+    # Offset 150
+    # Length 1
+    "Clearing Account Type": "1",
+
+    # Offset 151
+    # Length 16
+    "Client Account Number": "18095499442819  ",
+
+    # Offset 167
+    # Length 8
+    "Trader Order Number": "18098003",
+
+    # Offset 175
+    # Length 14
+    "Order Entry Date Time": "20260824165554",
+
+    # ==================================================
+    # BIC
+    # ==================================================
+
+    # Offset 189
+    # Length 4
+    "Bank Code": "180_",
+
+    # Offset 193
+    # Length 2
+    "Country Code": "IR",
+
+    # Offset 195
+    # Length 2
+    "Town Code": "  ",
+
+    # Offset 197
+    # Length 3
+    "Branch Code": "   ",
+
+    # ==================================================
+    # Free Text
+    # ==================================================
+
+    # Offset 200
+    # Length 18
+    "Free Text": "202608241655549774",
+
+    # ==================================================
+    # Clearing Member ID
+    # ==================================================
+
+    # Offset 218
+    # Length 8
+    "Clearing Member ID": "09      ",
+
+    # ==================================================
+    # Number of Underlying Instruments
+    # ==================================================
+
+    # Offset 226
+    # Length 2
+    "Underlying Count": "00"
+}
+
+
+def put_raw(
+    buffer: list,
+    offset: int,
+    length: int,
+    value,
+    field_name: str
+):
+    """
+    Write a value into its fixed-width position.
+
+    IMPORTANT:
+    - Existing spaces are preserved.
+    - No strip/rstrip/lstrip is performed.
+    - If the supplied value is shorter than the field length,
+      missing characters are filled with spaces on the RIGHT.
+    - If it is longer than the field length, an error is raised.
+    """
+
+    if value is None:
+        value = ""
+
+    value = str(value)
+
+    if len(value) > length:
+        raise ValueError(
+            f"{field_name}: invalid length. "
+            f"Maximum={length}, "
+            f"Actual={len(value)}, "
+            f"Value={value!r}"
+        )
+
+    # Preserve existing spaces and add only required
+    # padding on the right.
+    value = value.ljust(length, " ")
+
+    start = offset - 1
+    end = start + length
+
+    buffer[start:end] = list(value)
+
+
+def dict_to_execution_notice(data: dict) -> str:
+    """
+    Convert dictionary into fixed-width 0105 message.
+    """
+
+    buffer = list(" " * MESSAGE_LENGTH)
+
+    # ==================================================
+    # Offset 1-16
+    # Internal Subscriber Reference
+    # ==================================================
+
+    put_raw(
+        buffer,
+        1,
+        16,
+        data.get(
+            "Internal Subscriber Reference",
+            ""
+        ),
+        "Internal Subscriber Reference"
+    )
+
+    # ==================================================
+    # Offset 17-20
+    # NSC Function Code
+    # ==================================================
+
+    put_raw(
+        buffer,
+        17,
+        4,
+        data.get(
+            "NSC Function Code",
+            "0105"
+        ),
+        "NSC Function Code"
+    )
+
+    # ==================================================
+    # Offset 21-28
+    # Order Entry Date
+    # ==================================================
+
+    put_raw(
+        buffer,
+        21,
+        8,
+        data.get(
+            "Order Entry Date",
+            ""
+        ),
+        "Order Entry Date"
+    )
+
+    # ==================================================
+    # Offset 29-34
+    # Order Sequence Number
+    # ==================================================
+
+    put_raw(
+        buffer,
+        29,
+        6,
+        data.get(
+            "Order Sequence Number",
+            ""
+        ),
+        "Order Sequence Number"
+    )
+
+    # ==================================================
+    # Offset 35-46
+    # Instrument ID
+    # ==================================================
+
+    put_raw(
+        buffer,
+        35,
+        12,
+        data.get(
+            "Instrument ID",
+            ""
+        ),
+        "Instrument ID"
+    )
+
+    # ==================================================
+    # Offset 47-48
+    # Instrument Group ID
+    # FIXED
+    # ==================================================
+
+    put_raw(
+        buffer,
+        47,
+        2,
+        DEFAULT_FIELDS[
+            "Instrument Group ID"
+        ],
+        "Instrument Group ID"
+    )
+
+    # ==================================================
+    # Offset 49
+    # Order Side
+    # ==================================================
+
+    put_raw(
+        buffer,
+        49,
+        1,
+        data.get(
+            "Order Side",
+            ""
+        ),
+        "Order Side"
+    )
+
+    # ==================================================
+    # Offset 50-61
+    # Traded Quantity
+    # ==================================================
+
+    put_raw(
+        buffer,
+        50,
+        12,
+        data.get(
+            "Traded Quantity",
+            ""
+        ),
+        "Traded Quantity"
+    )
+
+    # ==================================================
+    # Offset 62-71
+    # Traded Price Aggregate
+    # ==================================================
+
+    traded_price = data.get(
+        "Traded Price",
+        {}
+    )
+
+    # Offset 62
+    put_raw(
+        buffer,
+        62,
+        1,
+        traded_price.get(
+            "Decimal Point Locator",
+            ""
+        ),
+        "Traded Price.Decimal Point Locator"
+    )
+
+    # Offset 63-71
+    put_raw(
+        buffer,
+        63,
+        9,
+        traded_price.get(
+            "Amount",
+            ""
+        ),
+        "Traded Price.Amount"
+    )
+
+    # ==================================================
+    # Offset 72
+    # Remaining Quantity Indicator
+    # ==================================================
+
+    put_raw(
+        buffer,
+        72,
+        1,
+        data.get(
+            "Remaining Quantity Indicator",
+            ""
+        ),
+        "Remaining Quantity Indicator"
+    )
+
+    # ==================================================
+    # Offset 73-84
+    # Remaining Quantity
+    # ==================================================
+
+    put_raw(
+        buffer,
+        73,
+        12,
+        data.get(
+            "Remaining Quantity",
+            ""
+        ),
+        "Remaining Quantity"
+    )
+
+    # ==================================================
+    # Offset 85-92
+    # Counterpart Member ID
+    # FIXED
+    # ==================================================
+
+    put_raw(
+        buffer,
+        85,
+        8,
+        DEFAULT_FIELDS[
+            "Counterpart Member ID"
+        ],
+        "Counterpart Member ID"
+    )
+
+    # ==================================================
+    # Offset 93
+    # Counterpart Order Origin
+    # FIXED
+    # ==================================================
+
+    put_raw(
+        buffer,
+        93,
+        1,
+        DEFAULT_FIELDS[
+            "Counterpart Order Origin"
+        ],
+        "Counterpart Order Origin"
+    )
+
+    # ==================================================
+    # Offset 94
+    # Technical Origin
+    # FIXED
+    # ==================================================
+
+    put_raw(
+        buffer,
+        94,
+        1,
+        DEFAULT_FIELDS[
+            "Technical Origin"
+        ],
+        "Technical Origin"
+    )
+
+    # ==================================================
+    # Offset 95-100
+    # Response Sequence Number
+    # FIXED
+    # ==================================================
+
+    put_raw(
+        buffer,
+        95,
+        6,
+        DEFAULT_FIELDS[
+            "Response Sequence Number"
+        ],
+        "Response Sequence Number"
+    )
+
+    # ==================================================
+    # Offset 101-108
+    # Response Date
+    # ==================================================
+
+    put_raw(
+        buffer,
+        101,
+        8,
+        data.get(
+            "Response Date",
+            ""
+        ),
+        "Response Date"
+    )
+
+    # ==================================================
+    # Offset 109-114
+    # Response Time
+    # ==================================================
+
+    put_raw(
+        buffer,
+        109,
+        6,
+        data.get(
+            "Response Time",
+            ""
+        ),
+        "Response Time"
+    )
+
+    # ==================================================
+    # Offset 115-121
+    # Trade Number
+    # ==================================================
+
+    put_raw(
+        buffer,
+        115,
+        7,
+        data.get(
+            "Trade Number",
+            ""
+        ),
+        "Trade Number"
+    )
+
+    # ==================================================
+    # Offset 122-129
+    # Trade Date
+    # ==================================================
+
+    put_raw(
+        buffer,
+        122,
+        8,
+        data.get(
+            "Trade Date",
+            ""
+        ),
+        "Trade Date"
+    )
+
+    # ==================================================
+    # Offset 130
+    # Order Type
+    # ==================================================
+
+    put_raw(
+        buffer,
+        130,
+        1,
+        data.get(
+            "Order Type",
+            ""
+        ),
+        "Order Type"
+    )
+
+    # ==================================================
+    # Offset 131
+    # Validity Type
+    # ==================================================
+
+    put_raw(
+        buffer,
+        131,
+        1,
+        data.get(
+            "Validity Type",
+            ""
+        ),
+        "Validity Type"
+    )
+
+    # ==================================================
+    # Offset 132
+    # Instrument Category
+    # FIXED
+    # ==================================================
+
+    put_raw(
+        buffer,
+        132,
+        1,
+        DEFAULT_FIELDS[
+            "Instrument Category"
+        ],
+        "Instrument Category"
+    )
+
+    # ==================================================
+    # Offset 133-140
+    # TRS Trade Number Bis
+    # FIXED
+    # ==================================================
+
+    put_raw(
+        buffer,
+        133,
+        8,
+        DEFAULT_FIELDS[
+            "TRS Trade Number Bis"
+        ],
+        "TRS Trade Number Bis"
+    )
+
+    # ==================================================
+    # Offset 141
+    # Filler
+    # FIXED
+    # ==================================================
+
+    put_raw(
+        buffer,
+        141,
+        1,
+        DEFAULT_FIELDS[
+            "Filler"
+        ],
+        "Filler"
+    )
+
+    # ==================================================
+    # Offset 142-188
+    # Clearing Data Aggregate
+    # FIXED
+    # ==================================================
+
+    # 142-149
+    put_raw(
+        buffer,
+        142,
+        8,
+        DEFAULT_FIELDS[
+            "Issuing Trader ID"
+        ],
+        "Issuing Trader ID"
+    )
+
+    # 150
+    put_raw(
+        buffer,
+        150,
+        1,
+        DEFAULT_FIELDS[
+            "Clearing Account Type"
+        ],
+        "Clearing Account Type"
+    )
+
+    # 151-166
+    put_raw(
+        buffer,
+        151,
+        16,
+        DEFAULT_FIELDS[
+            "Client Account Number"
+        ],
+        "Client Account Number"
+    )
+
+    # 167-174
+    put_raw(
+        buffer,
+        167,
+        8,
+        DEFAULT_FIELDS[
+            "Trader Order Number"
+        ],
+        "Trader Order Number"
+    )
+
+    # 175-188
+    put_raw(
+        buffer,
+        175,
+        14,
+        DEFAULT_FIELDS[
+            "Order Entry Date Time"
+        ],
+        "Order Entry Date Time"
+    )
+
+    # ==================================================
+    # Offset 189-199
+    # BIC
+    # FIXED
+    # ==================================================
+
+    # 189-192
+    put_raw(
+        buffer,
+        189,
+        4,
+        DEFAULT_FIELDS[
+            "Bank Code"
+        ],
+        "Bank Code"
+    )
+
+    # 193-194
+    put_raw(
+        buffer,
+        193,
+        2,
+        DEFAULT_FIELDS[
+            "Country Code"
+        ],
+        "Country Code"
+    )
+
+    # 195-196
+    put_raw(
+        buffer,
+        195,
+        2,
+        DEFAULT_FIELDS[
+            "Town Code"
+        ],
+        "Town Code"
+    )
+
+    # 197-199
+    put_raw(
+        buffer,
+        197,
+        3,
+        DEFAULT_FIELDS[
+            "Branch Code"
+        ],
+        "Branch Code"
+    )
+
+    # ==================================================
+    # Offset 200-217
+    # Free Text
+    # FIXED
+    # ==================================================
+
+    put_raw(
+        buffer,
+        200,
+        18,
+        DEFAULT_FIELDS[
+            "Free Text"
+        ],
+        "Free Text"
+    )
+
+    # ==================================================
+    # Offset 218-225
+    # Clearing Member ID
+    # FIXED
+    # ==================================================
+
+    put_raw(
+        buffer,
+        218,
+        8,
+        DEFAULT_FIELDS[
+            "Clearing Member ID"
+        ],
+        "Clearing Member ID"
+    )
+
+    # ==================================================
+    # Offset 226-227
+    # Underlying Count
+    # FIXED = 00
+    # ==================================================
+
+    put_raw(
+        buffer,
+        226,
+        2,
+        DEFAULT_FIELDS[
+            "Underlying Count"
+        ],
+        "Underlying Count"
+    )
+
+    # ==================================================
+    # Final message
+    # ==================================================
+
+    message = "".join(buffer)
+
+    if len(message) != MESSAGE_LENGTH:
+        raise ValueError(
+            f"Generated message length is incorrect. "
+            f"Expected={MESSAGE_LENGTH}, "
+            f"Actual={len(message)}"
+        )
+
+    return message
+
+
+def json_to_execution_notice(json_input) -> str:
+    """
+    Accept either:
+        - JSON string
+        - Python dictionary
+
+    and return fixed-width 0105 message.
+    """
+
+    if isinstance(json_input, str):
+
+        data = json.loads(json_input)
+
+    elif isinstance(json_input, dict):
+
+        data = json_input
+
+    else:
+
+        raise TypeError(
+            "Input must be either a JSON string "
+            "or a Python dictionary."
+        )
+
+    return dict_to_execution_notice(data)
+
+
+# ======================================================
+# Example
+# ======================================================
+
+if __name__ == "__main__":
+
+    data = {
+        "Internal Subscriber Reference": "180KZBVXe*agScie",
+        "NSC Function Code": "0105",
+        "Order Entry Date": "20260824",
+        "Order Sequence Number": "051057",
+        "Instrument ID": "IRTKROBA0001",
+        "Order Side": "A",
+        "Traded Quantity": "000000000250",
+
+        "Traded Price": {
+            "Decimal Point Locator": "2",
+            "Amount": "020926200"
+        },
+
+        "Remaining Quantity Indicator": "0",
+        "Remaining Quantity": "000000000000",
+
+        "Response Date": "20260824",
+        "Response Time": "165649",
+
+        "Trade Number": "0029559",
+        "Trade Date": "20260824",
+
+        "Order Type": "L",
+        "Validity Type": "J"
+    }
+
+    message = dict_to_execution_notice(data)
+
+    print(message)
+    print()
+    print("Message Length:", len(message))

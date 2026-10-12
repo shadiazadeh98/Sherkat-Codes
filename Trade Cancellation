@@ -1,0 +1,67 @@
+TEMPLATE = (
+    "180KRf0Pr0Ga00Il010020260607IRT1KMND0001202606070007692001238700000000000100124500000000123839        0000002A        "
+)
+
+TOTAL_LENGTH = len(TEMPLATE)
+
+
+def build_message(data: dict) -> str:
+    chars = list(TEMPLATE)
+
+    fields = {
+        "internal_subscriber_reference": (1, 16),
+        "nsc_function_code": (17, 4),
+        "trade_date": (21, 8),
+        "instrument_id": (29, 12),
+        "order_entry_date": (41, 8),
+        "order_sequence_number": (49, 6),
+        "decimal_locator": (55, 1),
+        "trade_price": (56, 9),
+        "traded_quantity": (65, 12),
+        "trade_time": (77, 6),
+        "response_sequence_time": (89, 6),
+        "trade_number": (103, 7),
+        "order_side": (110, 1),
+    }
+
+    for field, (offset, length) in fields.items():
+
+        if field not in data:
+            continue
+
+        value = str(data[field])
+
+        # fixed length formatting
+        value = value[:length].ljust(length)
+
+        start = offset - 1
+        end = start + length
+
+        chars[start:end] = list(value)
+
+    return "".join(chars)
+
+
+# =========================
+# SAMPLE INPUT
+# =========================
+input_json = {
+    "internal_subscriber_reference": "180KRf0Pr0Ga00IM",
+    "nsc_function_code": "0100",
+    "trade_date": "20260718",
+    "instrument_id": "IRO1PNES0001",
+    "order_entry_date": "20260718",
+    "order_sequence_number": "000005",
+    "decimal_locator": "2",
+    "trade_price": "058500000",
+    "traded_quantity": "000000865155",
+    "trade_time": "500000",
+    "response_sequence_time": "155320",
+    "trade_number": "0000001",
+    "order_side": "A"
+}
+
+result = build_message(input_json)
+
+print(result)
+print("\nLength:", len(result))

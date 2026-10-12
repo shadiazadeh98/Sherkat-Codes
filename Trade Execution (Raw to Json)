@@ -1,0 +1,309 @@
+import json
+
+
+MESSAGE_LENGTH = 227
+
+
+def read_raw(message: str, offset: int, length: int) -> str:
+    """
+    Read a field exactly as it exists in the fixed-width message.
+
+    IMPORTANT:
+    - Spaces are preserved.
+    - No strip(), rstrip() or lstrip() is used.
+    - NSC offsets are 1-based.
+    - Python indexes are 0-based.
+    """
+
+    start = offset - 1
+    end = start + length
+
+    return message[start:end]
+
+
+def execution_notice_to_dict(message: str) -> dict:
+    """
+    Convert a fixed-width 0105 Execution Notice message
+    into a Python dictionary.
+
+    Fields that are configured as fixed/internal fields
+    are intentionally NOT returned.
+    """
+
+    # --------------------------------------------------
+    # Validate message length
+    # --------------------------------------------------
+
+    if len(message) != MESSAGE_LENGTH:
+        raise ValueError(
+            f"Invalid message length. "
+            f"Expected exactly {MESSAGE_LENGTH} characters, "
+            f"got {len(message)}."
+        )
+
+    # ==================================================
+    # Internal / Fixed fields
+    #
+    # These fields exist in the original message,
+    # but are intentionally NOT included in JSON output.
+    # ==================================================
+
+    # Instrument Group ID
+    # Offset 47 / Length 2
+    c_id_grc = read_raw(message, 47, 2)
+
+    # Counterpart Member ID
+    # Offset 85 / Length 8
+    counterpart_member_id = read_raw(message, 85, 8)
+
+    # Order Origin for Counterpart Broker
+    # Offset 93 / Length 1
+    counterpart_order_origin = read_raw(message, 93, 1)
+
+    # Technical Origin
+    # Offset 94 / Length 1
+    technical_origin = read_raw(message, 94, 1)
+
+    # Response Sequence Number
+    # Offset 95 / Length 6
+    response_sequence_number = read_raw(message, 95, 6)
+
+    # TRS Trade Number Bis
+    # Offset 133 / Length 8
+    trs_trade_number_bis = read_raw(message, 133, 8)
+
+    # Instrument Category
+    # Offset 132 / Length 1
+    instrument_category = read_raw(message, 132, 1)
+
+    # Filler
+    # Offset 141 / Length 1
+    filler = read_raw(message, 141, 1)
+
+    # --------------------------------------------------
+    # Clearing Data Aggregate
+    # Offset 142-188
+    # --------------------------------------------------
+
+    issuing_trader_id = read_raw(message, 142, 8)
+
+    clearing_account_type = read_raw(message, 150, 1)
+
+    client_account_number = read_raw(message, 151, 16)
+
+    trader_order_number = read_raw(message, 167, 8)
+
+    order_entry_date_time = read_raw(message, 175, 14)
+
+    # --------------------------------------------------
+    # BIC
+    # Offset 189-199
+    # --------------------------------------------------
+
+    bank_code = read_raw(message, 189, 4)
+
+    country_code = read_raw(message, 193, 2)
+
+    town_code = read_raw(message, 195, 2)
+
+    branch_code = read_raw(message, 197, 3)
+
+    # --------------------------------------------------
+    # Free Text
+    # Offset 200-217
+    # --------------------------------------------------
+
+    free_text = read_raw(message, 200, 18)
+
+    # --------------------------------------------------
+    # Clearing Member ID
+    # Offset 218-225
+    # --------------------------------------------------
+
+    clearing_member_id = read_raw(message, 218, 8)
+
+    # --------------------------------------------------
+    # Underlying count
+    # Offset 226-227
+    # --------------------------------------------------
+
+    underlying_count = read_raw(message, 226, 2)
+
+    # ==================================================
+    # JSON Output
+    # ==================================================
+
+    result = {
+
+        # Offset 1-16
+        "Internal Subscriber Reference":
+            read_raw(message, 1, 16),
+
+        # Offset 17-20
+        "NSC Function Code":
+            read_raw(message, 17, 4),
+
+        # Offset 21-28
+        "Order Entry Date":
+            read_raw(message, 21, 8),
+
+        # Offset 29-34
+        "Order Sequence Number":
+            read_raw(message, 29, 6),
+
+        # Offset 35-46
+        "Instrument ID":
+            read_raw(message, 35, 12),
+
+        # Offset 47-48
+        # Instrument Group ID
+        # intentionally NOT returned
+
+        # Offset 49
+        "Order Side":
+            read_raw(message, 49, 1),
+
+        # Offset 50-61
+        "Traded Quantity":
+            read_raw(message, 50, 12),
+
+        # Offset 62-71
+        "Traded Price": {
+
+            # Offset 62
+            "Decimal Point Locator":
+                read_raw(message, 62, 1),
+
+            # Offset 63-71
+            "Amount":
+                read_raw(message, 63, 9)
+        },
+
+        # Offset 72
+        "Remaining Quantity Indicator":
+            read_raw(message, 72, 1),
+
+        # Offset 73-84
+        "Remaining Quantity":
+            read_raw(message, 73, 12),
+
+        # Offset 85-92
+        # Counterpart Member ID
+        # intentionally NOT returned
+
+        # Offset 93
+        # Counterpart Order Origin
+        # intentionally NOT returned
+
+        # Offset 94
+        # Technical Origin
+        # intentionally NOT returned
+
+        # Offset 95-100
+        # Response Sequence Number
+        # intentionally NOT returned
+
+        # Offset 101-108
+        "Response Date":
+            read_raw(message, 101, 8),
+
+        # Offset 109-114
+        "Response Time":
+            read_raw(message, 109, 6),
+
+        # Offset 115-121
+        "Trade Number":
+            read_raw(message, 115, 7),
+
+        # Offset 122-129
+        "Trade Date":
+            read_raw(message, 122, 8),
+
+        # Offset 130
+        "Order Type":
+            read_raw(message, 130, 1),
+
+        # Offset 131
+        "Validity Type":
+            read_raw(message, 131, 1),
+
+        # Offset 132
+        # Instrument Category
+        # intentionally NOT returned
+
+        # Offset 133-140
+        # TRS Trade Number Bis
+        # intentionally NOT returned
+
+        # Offset 141
+        # Filler
+        # intentionally NOT returned
+
+        # Offset 142-188
+        # Clearing Data
+        # intentionally NOT returned
+
+        # Offset 189-199
+        # BIC
+        # intentionally NOT returned
+
+        # Offset 200-217
+        # Free Text
+        # intentionally NOT returned
+
+        # Offset 218-225
+        # Clearing Member ID
+        # intentionally NOT returned
+
+        # Offset 226-227
+        # Underlying Count
+        # intentionally NOT returned
+    }
+
+    # ==================================================
+    # Validation
+    # ==================================================
+
+    if result["NSC Function Code"] != "0105":
+        raise ValueError(
+            "Message is not an Execution Notice 0105. "
+            f"NSC Function Code = "
+            f"{result['NSC Function Code']!r}"
+        )
+
+    return result
+
+
+def execution_notice_to_json(message: str) -> str:
+    """
+    Convert 0105 message directly to formatted JSON text.
+    """
+
+    data = execution_notice_to_dict(message)
+
+    return json.dumps(
+        data,
+        ensure_ascii=False,
+        indent=2
+    )
+
+
+# ======================================================
+# Example
+# ======================================================
+
+if __name__ == "__main__":
+
+    message = (
+        "180KZBVXe*agScie010520260824051057IRTKROBA0001QSA"
+        "00000000025020209262000000000000000        "
+        "1A00000020260824165649002955920260824LJA"
+        "         18098003118095499442819  18098003"
+        "20260824165554180_IR     202608241655549774"
+        "09      00"
+    )
+
+    print("Message Length:", len(message))
+    print()
+
+    print(execution_notice_to_json(message))

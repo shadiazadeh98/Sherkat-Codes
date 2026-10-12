@@ -1,0 +1,77 @@
+TEMPLATE = "180KR004r0F000Gq013820260623000009SIRO1PNES00010000000008612000719100180     J 00000000AL000000154028    18098002518090921805446  1809800220260623120600180_IR20                              "
+
+TOTAL_LENGTH = len(TEMPLATE)
+
+
+def build_message(data: dict) -> str:
+    chars = list(TEMPLATE)
+
+    # =========================
+    # normal fields
+    # =========================
+    fields = {
+        "internal_subscriber_reference": (1, 16),
+        "nsc_function_code": (17, 4),
+        "order_entry_date": (21, 8),
+        "order_sequence_number": (29, 6),
+        "instrument_id": (36, 12),
+        "remaining_quantity": (48, 12),
+        "price": (61, 9),
+        "validity_type": (78, 1),
+        "order_validity_date": (80, 8),
+        "type_of_limit": (89, 1),
+        "response_sequence_time": (96, 6),
+        "order_entry_datetime": (139, 14),
+    }
+
+    for field, (offset, length) in fields.items():
+        if field not in data:
+            continue
+
+        value = str(data[field])[:length].ljust(length)
+
+        start = offset - 1
+        chars[start:start + length] = list(value)
+
+    # =========================
+    # FIXED PART (your correction)
+    # =========================
+
+    # 114 → 1 char (Type of Clearing Account)
+    if "YCpteOm" in data:
+        start = 114 - 1
+        chars[start:start + 1] = list(str(data["YCpteOm"])[:1])
+
+    # 115 → 16 chars (Client Account Number)
+    if "NCptePosIptOm" in data:
+        start = 115 - 1
+        value = str(data["NCptePosIptOm"])[:16].ljust(16)
+        chars[start:start + 16] = list(value)
+
+    return "".join(chars)
+
+
+# =========================
+# INPUT
+# =========================
+input_json = {
+    "internal_subscriber_reference": "180KR004a0F000Ga",
+    "nsc_function_code": "0138",
+    "order_entry_date": "20260718",
+    "order_sequence_number": "000001",
+    "instrument_id": "IRTKZARF0001",
+    "remaining_quantity": "000000400000",
+    "price": "056371600",
+    "validity_type": "J",
+    "order_validity_date": "00000000",
+    "type_of_limit": "L",
+    "response_sequence_time": "154215",
+    "YCpteOm": "1",
+    "NCptePosIptOm": "18090921805446",
+    "order_entry_datetime": "20260718154215"
+}
+
+result = build_message(input_json)
+
+print(result)
+print("\nLength:", len(result))

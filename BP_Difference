@@ -1,0 +1,248 @@
+import json
+from decimal import Decimal
+
+
+def D(value):
+    if value is None:
+        return Decimal("0")
+    return Decimal(str(value))
+
+
+def fmt(value):
+    if isinstance(value, Decimal):
+        if value == value.to_integral():
+            return str(value.quantize(Decimal("1")))
+        return format(value.normalize(), "f")
+    return str(value)
+
+
+def load_json(input_json):
+    if isinstance(input_json, str):
+        return json.loads(
+            input_json,
+            parse_float=Decimal,
+            parse_int=Decimal
+        )
+
+    if isinstance(input_json, dict):
+        return input_json
+
+    raise ValueError(
+        "Input must be a JSON string or Python dictionary."
+    )
+
+
+def compare_jsons(json1, json2):
+    data1 = load_json(json1)
+    data2 = load_json(json2)
+
+    # تمام فیلدهای موجود در هر دو JSON
+    # بدون حذف فیلدهای تکراری
+    all_fields = list(
+        dict.fromkeys(
+            list(data1.keys()) + list(data2.keys())
+        )
+    )
+
+    results = {}
+
+    for field in all_fields:
+
+        # اگر فیلد فقط در JSON 2 باشد
+        if field not in data1:
+            results[field] = {
+                "Json1": "Field Not Found",
+                "Json2": data2.get(field),
+                "Difference": "N/A"
+            }
+            continue
+
+        # اگر فیلد فقط در JSON 1 باشد
+        if field not in data2:
+            results[field] = {
+                "Json1": data1.get(field),
+                "Json2": "Field Not Found",
+                "Difference": "N/A"
+            }
+            continue
+
+        value1 = data1[field]
+        value2 = data2[field]
+
+        is_numeric_1 = isinstance(
+            value1,
+            (int, float, Decimal)
+        )
+
+        is_numeric_2 = isinstance(
+            value2,
+            (int, float, Decimal)
+        )
+
+        # اگر هر دو مقدار عددی باشند
+        if is_numeric_1 and is_numeric_2:
+            value1 = D(value1)
+            value2 = D(value2)
+
+            results[field] = {
+                "Json1": value1,
+                "Json2": value2,
+
+                # Difference = JSON 2 - JSON 1
+                "Difference": value2 - value1
+            }
+
+        # برای مقادیر غیرعددی مثل AccountNumber
+        else:
+            results[field] = {
+                "Json1": value1,
+                "Json2": value2,
+                "Difference": (
+                    "Same"
+                    if value1 == value2
+                    else "Different"
+                )
+            }
+
+    return results
+
+
+def print_comparison_table(results):
+    field_width = 32
+    value_width = 24
+    diff_width = 24
+
+    separator = (
+        "+"
+        + "-" * (field_width + 2)
+        + "+"
+        + "-" * (value_width + 2)
+        + "+"
+        + "-" * (value_width + 2)
+        + "+"
+        + "-" * (diff_width + 2)
+        + "+"
+    )
+
+    print()
+    print("=" * 115)
+    print("JSON COMPARISON")
+    print("Difference = JSON 2 - JSON 1")
+    print("=" * 115)
+    print()
+
+    print(separator)
+
+    print(
+        f"| {'Field':<{field_width}} "
+        f"| {'JSON 1':>{value_width}} "
+        f"| {'JSON 2':>{value_width}} "
+        f"| {'Difference':>{diff_width}} |"
+    )
+
+    print(separator)
+
+    for field, values in results.items():
+        value1 = fmt(values["Json1"])
+        value2 = fmt(values["Json2"])
+        difference = fmt(values["Difference"])
+
+        print(
+            f"| {field:<{field_width}} "
+            f"| {value1:>{value_width}} "
+            f"| {value2:>{value_width}} "
+            f"| {difference:>{diff_width}} |"
+        )
+
+    print(separator)
+
+
+# =============================================================
+# INPUT DATA
+# فقط JSONهای این قسمت را تغییر بده
+# =============================================================
+
+json1 = r'''
+{
+  "AccountNumber": "18090921805446",
+  "Creditor_T0": 11000000.0000000000,
+  "Creditor_T1": 66638774.3563187500,
+  "Creditor_T2": 31831109.3520000000,
+  "Debtor_T0": 0.0000000000,
+  "Debtor_T1": 98203327.2856375000,
+  "Debtor_T2": 36134445.0067200000,
+  "BlockOff_T0": 0.0000000000,
+  "BlockOff_T1": 0.0000000000,
+  "BlockOff_T2": 0.0000000000,
+  "BlockWith_T0": 0.0000000000,
+  "BlockWith_T1": 0.0000000000,
+  "BlockWith_T2": 0.0000000000,
+  "BlockOn_T0": 0.0000000000,
+  "BlockOn_T1": 0.0000000000,
+  "BlockOn_T2": 0.0000000000,
+  "Credit": 2000000,
+  "BP_T0": -867888.5840387500,
+  "BP_T1": 7028.4159612500,
+  "BP_T2": 7028.4159612500,
+  "BP_T1_WithoutKaraCredit": -867888.5840387500,
+  "BP_T2_WithoutKaraCredit": -867888.5840387500,
+  "Withdraw_T0": -2867888.5840387500,
+  "Withdraw_T1": -2867888.5840387500,
+  "Withdraw_T2": -2867888.5840387500,
+  "BlockM_T0": 0.0000000000,
+  "BlockSettlement_T0": 0.0000000000,
+  "ManualCreditor_T0": 9000000.0000000000,
+  "ManualCreditor_T1": 8800000.0000000000,
+  "ManualCreditor_T2": 4200000.0000000000,
+  "ManualDebtor_T0": 0.0000000000,
+  "DebtorT1_KaraCredit": 6867051.0000000000,
+  "CreditorT1_KaraCredit": 7741968.0000000000
+}
+'''
+
+
+json2 = r'''
+{
+  "AccountNumber": "18090921805446",
+  "Creditor_T0": 11000000.0000000000,
+  "Creditor_T1": 66638774.3563187500,
+  "Creditor_T2": 31831109.3520000000,
+  "Debtor_T0": 0.0000000000,
+  "Debtor_T1": 98203327.2856375000,
+  "Debtor_T2": 36134445.0067200000,
+  "BlockOff_T0": 0.0000000000,
+  "BlockOff_T1": 0.0000000000,
+  "BlockOff_T2": 0.0000000000,
+  "BlockWith_T0": 0.0000000000,
+  "BlockWith_T1": 0.0000000000,
+  "BlockWith_T2": 0.0000000000,
+  "BlockOn_T0": 0.0000000000,
+  "BlockOn_T1": 0.0000000000,
+  "BlockOn_T2": 0.0000000000,
+  "Credit": 2000000,
+  "BP_T0": -867888.5840387500,
+  "BP_T1": -867888.5840387500,
+  "BP_T2": -867888.5840387500,
+  "BP_T1_WithoutKaraCredit": -867888.5840387500,
+  "BP_T2_WithoutKaraCredit": -867888.5840387500,
+  "Withdraw_T0": -2867888.5840387500,
+  "Withdraw_T1": -2867888.5840387500,
+  "Withdraw_T2": -2867888.5840387500,
+  "BlockM_T0": 0.0000000000,
+  "BlockSettlement_T0": 0.0000000000,
+  "ManualCreditor_T0": 9000000.0000000000,
+  "ManualCreditor_T1": 8800000.0000000000,
+  "ManualCreditor_T2": 4200000.0000000000,
+  "ManualDebtor_T0": 0.0000000000,
+  "DebtorT1_KaraCredit": 0,
+  "CreditorT1_KaraCredit": 0
+}
+'''
+
+
+# =============================================================
+# RUN
+# =============================================================
+
+results = compare_jsons(json1, json2)
+print_comparison_table(results)

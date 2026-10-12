@@ -1,0 +1,291 @@
+
+BASE_LENGTH = 227
+UNDERLYING_LENGTH = 35
+MAX_UNDERLYINGS = 40
+
+
+def put(buffer, offset, length, value, field_type="Alpha"):
+    """
+    offset is 1-based according to NSC documentation.
+    """
+
+    if value is None:
+        value = ""
+
+    value = str(value)
+
+    if len(value) > length:
+        raise ValueError(
+            f"Value '{value}' exceeds field length {length}"
+        )
+
+    if field_type == "Num":
+        value = value.rjust(length, "0")
+    else:
+        value = value.ljust(length, " ")
+
+    start = offset - 1
+    buffer[start:start + length] = list(value)
+
+
+def json_to_execution_notice(data: dict) -> str:
+
+    underlyings = data.get("ADonProdCpsTran", [])
+
+    if len(underlyings) > MAX_UNDERLYINGS:
+        raise ValueError(
+            f"Maximum {MAX_UNDERLYINGS} underlyings are allowed"
+        )
+
+    count = len(underlyings)
+
+    message_length = (
+        BASE_LENGTH + count * UNDERLYING_LENGTH
+    )
+
+    buffer = list(" " * message_length)
+
+    # --------------------------------------------------
+    # Main fields
+    # --------------------------------------------------
+
+    put(buffer, 1, 16, data.get("LRIfntAdfMsg"), "Alpha")
+    put(buffer, 17, 4, data.get("CFon"), "Num")
+    put(buffer, 21, 8, data.get("DSaiOm"), "Alpha")
+    put(buffer, 29, 6, data.get("NSeqOm"), "Num")
+    put(buffer, 35, 12, data.get("CValIsin"), "Alpha")
+    put(buffer, 47, 2, data.get("CIdGrc"), "Alpha")
+
+    put(buffer, 49, 1, data.get("ISensOm"), "Alpha")
+    put(buffer, 50, 12, data.get("QTitTran"), "Num")
+
+    # --------------------------------------------------
+    # PTran aggregate
+    # --------------------------------------------------
+
+    ptran = data.get("PTran", {})
+
+    put(buffer, 62, 1, ptran.get("Ift"), "Alpha")
+    put(buffer, 63, 9, ptran.get("Qmt"), "Num")
+
+    # --------------------------------------------------
+    # Remaining main fields
+    # --------------------------------------------------
+
+    put(buffer, 72, 1, data.get("IPrsQTitRest"), "Alpha")
+    put(buffer, 73, 12, data.get("QTitRestOm"), "Num")
+    put(buffer, 85, 8, data.get("CIdAdfCie"), "Alpha")
+    put(buffer, 93, 1, data.get("YCpteOmCie"), "Alpha")
+    put(buffer, 94, 1, data.get("YOm"), "Alpha")
+
+    put(buffer, 95, 6, data.get("NMsgRepoN"), "Num")
+    put(buffer, 101, 8, data.get("DMsgRepoN"), "Alpha")
+    put(buffer, 109, 6, data.get("HMsgRepoN"), "Alpha")
+
+    put(buffer, 115, 7, data.get("NTran"), "Num")
+    put(buffer, 122, 8, data.get("DTran"), "Alpha")
+
+    put(buffer, 130, 1, data.get("YPLimSaiOm"), "Alpha")
+    put(buffer, 131, 1, data.get("YValOmNSC"), "Alpha")
+    put(buffer, 132, 1, data.get("CGDsVal"), "Alpha")
+
+    put(buffer, 133, 8, data.get("NTranKL"), "Num")
+    put(buffer, 141, 1, data.get("Filler"), "Alpha")
+
+    # --------------------------------------------------
+    # ADonCompOmApi aggregate
+    # --------------------------------------------------
+
+    clearing = data.get("ADonCompOmApi", {})
+
+    put(buffer, 142, 8, clearing.get("CIdNgSai"), "Alpha")
+    put(buffer, 150, 1, clearing.get("YCpteOm"), "Alpha")
+    put(buffer, 151, 16, clearing.get("NCptePosIptOm"), "Alpha")
+    put(buffer, 167, 8, clearing.get("CIdOmNg"), "Alpha")
+    put(buffer, 175, 14, clearing.get("DHSaiOmAdf"), "Alpha")
+
+    # --------------------------------------------------
+    # CBIC aggregate
+    # --------------------------------------------------
+
+    cbic = data.get("CBIC", {})
+
+    put(buffer, 189, 4, cbic.get("CBq"), "Alpha")
+    put(buffer, 193, 2, cbic.get("CPyMbr"), "Alpha")
+    put(buffer, 195, 2, cbic.get("CVilMbr"), "Alpha")
+    put(buffer, 197, 3, cbic.get("CSec"), "Alpha")
+
+    # --------------------------------------------------
+    # Final main fields
+    # --------------------------------------------------
+
+    put(buffer, 200, 18, data.get("LSaiOm"), "Alpha")
+
+    put(
+        buffer,
+        218,
+        8,
+        data.get("CIdMbrDestGupOm"),
+        "Alpha"
+    )
+
+    put(buffer, 226, 2, count, "Num")
+
+    # --------------------------------------------------
+    # Repeating ADonProdCpsTran
+    # --------------------------------------------------
+
+    for index, item in enumerate(underlyings):
+
+        base = 228 + index * UNDERLYING_LENGTH
+
+        put(
+            buffer,
+            base,
+            12,
+            item.get("CIsinProdCps"),
+            "Alpha"
+        )
+
+        ratio = item.get("ARaoCps", {})
+
+        put(
+            buffer,
+            base + 12,
+            1,
+            ratio.get("CSignKMuProdCps"),
+            "Alpha"
+        )
+
+        put(
+            buffer,
+            base + 13,
+            4,
+            ratio.get("KRaoCpsStg"),
+            "Num"
+        )
+
+        price = item.get("PTranProdCps", {})
+
+        put(
+            buffer,
+            base + 17,
+            1,
+            price.get("Ift"),
+            "Alpha"
+        )
+
+        put(
+            buffer,
+            base + 18,
+            9,
+            price.get("Qmt"),
+            "Num"
+        )
+
+        put(
+            buffer,
+            base + 27,
+            8,
+            item.get("NTranKLProdCps"),
+            "Num"
+        )
+
+    return "".join(buffer)
+
+
+# ======================================================
+# INPUT JSON
+# مقادیر ورودی را از این قسمت تغییر بده
+# ======================================================
+
+data = {
+    "LRIfntAdfMsg": "180KZBVXe*agScie",
+    "CFon": "0105",
+    "DSaiOm": "20260824",
+    "NSeqOm": "051057",
+    "CValIsin": "IRTKROBA0001",
+    "CIdGrc": "QS",
+    "ISensOm": "A",
+    "QTitTran": "000000000250",
+
+    "PTran": {
+        "Ift": "A",
+        "Qmt": "000017114"
+    },
+
+    "IPrsQTitRest": "",
+    "QTitRestOm": "000000000000",
+    "CIdAdfCie": "",
+    "YCpteOmCie": "",
+    "YOm": "",
+
+    "NMsgRepoN": "000000",
+    "DMsgRepoN": "20260824",
+    "HMsgRepoN": "120000",
+
+    "NTran": "0000001",
+    "DTran": "20260824",
+
+    "YPLimSaiOm": "",
+    "YValOmNSC": "",
+    "CGDsVal": "",
+
+    "NTranKL": "00000000",
+    "Filler": " ",
+
+    "ADonCompOmApi": {
+        "CIdNgSai": "",
+        "YCpteOm": "",
+        "NCptePosIptOm": "",
+        "CIdOmNg": "",
+        "DHSaiOmAdf": ""
+    },
+
+    "CBIC": {
+        "CBq": "",
+        "CPyMbr": "",
+        "CVilMbr": "",
+        "CSec": ""
+    },
+
+    "LSaiOm": "",
+    "CIdMbrDestGupOm": "",
+
+    "ADonProdCpsTran": []
+}
+
+
+# ======================================================
+# EXECUTION
+# ======================================================
+
+message = json_to_execution_notice(data)
+
+expected_length = (
+    BASE_LENGTH
+    + len(data["ADonProdCpsTran"]) * UNDERLYING_LENGTH
+)
+
+print("=" * 60)
+print("EXECUTION NOTICE MESSAGE")
+print("=" * 60)
+
+print(message)
+
+print("=" * 60)
+print("MESSAGE INFORMATION")
+print("=" * 60)
+
+print("Message Length:", len(message))
+print("Expected Length:", expected_length)
+print("Underlying Count:", len(data["ADonProdCpsTran"]))
+
+print("Message Length Valid:", len(message) == expected_length)
+
+# repr helps display spaces for debugging
+print("=" * 60)
+print("MESSAGE WITH VISIBLE SPACE REPRESENTATION")
+print("=" * 60)
+
+print(repr(message))

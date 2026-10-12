@@ -1,0 +1,123 @@
+import json
+
+
+# =====================================================
+# Field Mapping
+# Position is 1-based
+# =====================================================
+
+FIELDS = {
+
+    "Internal Subscriber Reference": (1, 16),
+
+    "NSC Function Code": (17, 4),
+
+    "Trading Date": (21, 8),
+
+    "Instrument ID": (29, 12),
+
+
+    # Position 42 ثابت می‌ماند
+    # فقط Position 43 تا 50 تغییر می‌کند
+    "Trade Price": (43, 8),
+
+
+    "Traded Quantity": (51, 12),
+
+    "Trade Date & time": (63, 14),
+
+    "Order Side": (77, 1),
+
+    "Response Sequence Number Time": (88, 6),
+
+    "Trade Number": (100, 7),
+
+    "Client Account Number": (126, 16),
+
+    "Trader Order Number (TON)": (142, 8),
+
+    "Order Entry Date & time": (150, 14),
+}
+
+
+
+def json_to_string(data: dict, original_string: str) -> str:
+
+    # مهم:
+    # روی همان رشته اصلی کار می‌کنیم
+    chars = list(original_string)
+
+
+    for field, (position, length) in FIELDS.items():
+
+        # اگر Field در JSON نبود:
+        # هیچ تغییری نده
+        if field not in data:
+            continue
+
+
+        value = str(data[field])
+
+
+        # Fixed Length
+        value = value[:length].ljust(length)
+
+
+        start = position - 1
+
+
+        # فقط همان قسمت جایگزین می‌شود
+        chars[start:start + length] = list(value)
+
+
+    return "".join(chars)
+
+
+
+# =====================================================
+# ORIGINAL STRING
+# بدون حذف حتی یک Space
+# =====================================================
+
+original_string = (
+    "                010320260607IRO1ASAL0001200071910000000000060020260616121800A        "
+    "5A0000001218000000023B        018098002518090011475447          "
+    "20221018151302                                     00"
+)
+
+
+
+# =====================================================
+# JSON INPUT
+# فقط فیلدهایی که میخواهی تغییر کنند
+# لازم نیست همه Field ها باشند
+# =====================================================
+
+input_json = {
+    "Internal Subscriber Reference": "                ",
+    "NSC Function Code": "0103",
+    "Trading Date": "20260607",
+    "Instrument ID": "IRO1ASAL0001",
+    "Trade Price": "00719100",
+    "Traded Quantity": "000000000600",
+    "Trade Date & time": "20260616121800",
+    "Order Side": "A",
+    "Response Sequence Number Time": "000000",
+    "Trade Number": "0000023",
+    "Client Account Number": "18090011475447  ",
+    "Trader Order Number (TON)": "        ",
+    "Order Entry Date & time": "20221018151302"
+}
+
+
+
+result = json_to_string(
+    input_json,
+    original_string
+)
+
+
+print(result)
+
+print("\nOriginal Length:", len(original_string))
+print("Result Length:  ", len(result))
